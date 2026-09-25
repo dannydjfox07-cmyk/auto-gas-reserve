@@ -56,6 +56,35 @@ type GraphQLResponse = {
   };
 };
 
+type ActivityGraphQLResponse = {
+  data?: {
+    depositss?: {
+      items: {
+        user: string;
+        amount: string;
+        blockNumber: string;
+        transactionHash: string;
+      }[];
+    };
+    gasTopupss?: {
+      items: {
+        user: string;
+        amount: string;
+        blockNumber: string;
+        transactionHash: string;
+      }[];
+    };
+    withdrawalss?: {
+      items: {
+        user: string;
+        amount: string;
+        blockNumber: string;
+        transactionHash: string;
+      }[];
+    };
+  };
+};
+
 const LLM_BASE_URL =
   process.env.LLM_BASE_URL!;
 
@@ -188,6 +217,171 @@ app.get("/withdrawals", async (c) => {
   const data = await response.json();
 
   return c.json(data);
+});
+
+app.get("/activity/:address", async (c) => {
+  const address = c.req.param("address").toLowerCase();
+
+  try {
+    const [depositsResponse, topupsResponse, withdrawalsResponse] =
+      await Promise.all([
+        fetch(PONDER_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            query: `
+              {
+                depositss(
+                  where: { user: "${address}" }
+                  orderBy: "blockNumber"
+                  orderDirection: "desc"
+                  limit: 5
+                ) {
+                  items {
+                    user
+                    amount
+                    blockNumber
+                    transactionHash
+                  }
+                }
+              }
+            `,
+          }),
+        }).then(
+          (res) => res.json() as Promise<ActivityGraphQLResponse>
+        ),
+
+        fetch(PONDER_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            query: `
+              {
+                gasTopupss(
+                  where: { user: "${address}" }
+                  orderBy: "blockNumber"
+                  orderDirection: "desc"
+                  limit: 5
+                ) {
+                  items {
+                    user
+                    amount
+                    blockNumber
+                    transactionHash
+                  }
+                }
+              }
+            `,
+          }),
+        }).then(
+          (res) => res.json() as Promise<ActivityGraphQLResponse>
+        ),
+
+        fetch(PONDER_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            query: `
+              {
+                withdrawalss(
+                  where: { user: "${address}" }
+                  orderBy: "blockNumber"
+                  orderDirection: "desc"
+                  limit: 5
+                ) {
+                  items {
+                    user
+                    amount
+                    blockNumber
+                    transactionHash
+                  }
+                }
+              }
+            `,
+          }),
+        }).then(
+          (res) => res.json() as Promise<ActivityGraphQLResponse>
+        ),
+      ]);
+
+    const activities = [
+      ...(depositsResponse.data?.depositss?.items ?? []).map(
+        (item: any) => ({
+          type: "deposit",
+          label: "Reserve deposit",
+          amountWei: item.amount,
+          blockNumber: item.blockNumber,
+          transactionHash: item.transactionHash,
+        })
+      ),
+
+      ...(topupsResponse.data?.gasTopupss?.items ?? []).map(
+        (item: any) => ({
+          type: "topup",
+          label: "Gas top-up",
+          amountWei: item.amount,
+          blockNumber: item.blockNumber,
+          transactionHash: item.transactionHash,
+        })
+      ),
+
+      ...(withdrawalsResponse.data?.withdrawalss?.items ?? []).map(
+        (item: any) => ({
+          type: "withdrawal",
+          label: "Reserve withdrawal",
+          amountWei: item.amount,
+          blockNumber: item.blockNumber,
+          transactionHash: item.transactionHash,
+        })
+      ),
+    ];
+
+    activities.sort(
+      (a, b) =>
+        Number(BigInt(b.blockNumber) - BigInt(a.blockNumber))
+    );
+
+    const latestActivities = activities.slice(0, 5);
+
+    const activitiesWithTimestamp = await Promise.all(
+      latestActivities.map(async (activity) => {
+        const block = await publicClient.getBlock({
+          blockNumber: BigInt(activity.blockNumber),
+        });
+
+        return {
+          ...activity,
+          amountBNB: formatEther(BigInt(activity.amountWei)),
+          timestamp: new Date(
+            Number(block.timestamp) * 1000
+          ).toISOString(),
+        };
+      })
+    );
+
+    return c.json({
+      address,
+      activities: activitiesWithTimestamp,
+    });
+  } catch (error) {
+    console.error("Failed to fetch activity:", error);
+
+    return c.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch activity",
+      },
+      500
+    );
+  }
 });
 
 app.get("/user/:address", async (c) => {
@@ -746,6 +940,15 @@ app.post("/recommendation", async (c) => {
   const gasUnaffordable =
     !canAffordGas;
 
+  const transactionUnaffordable =
+    !canAffordTransaction;
+
+  if (transactionUnaffordable) {
+    reasons.push(
+      "Transaction would leave the wallet below the minimum safety reserve",
+    );
+  }
+
   if (lowRunway) {
     reasons.push(
       "Wallet gas runway is below 7 days",
@@ -772,14 +975,19 @@ app.post("/recommendation", async (c) => {
     reserveData.eligible &&
     reserveBalance > 0n;
 
-  // How much gas the wallet should have available
-  // after this transaction while preserving the safety reserve.
-  const gasSafetyRequirement =
-    estimatedGasCost + minimumReserve;
+  // How much the wallet needs to have available before
+  // the transaction so it can pay:
+  // 1. transaction value
+  // 2. transaction gas
+  // 3. minimum safety reserve
+  const transactionSafetyRequirement =
+    transactionValue +
+    estimatedGasCost +
+    minimumReserve;
 
-  const gasSafetyTopUp =
-    gasSafetyRequirement > walletBalance
-      ? gasSafetyRequirement - walletBalance
+  const transactionSafetyTopUp =
+    transactionSafetyRequirement > walletBalance
+      ? transactionSafetyRequirement - walletBalance
       : 0n;
 
   // How much is needed to reach the target gas reserve.
@@ -790,10 +998,9 @@ app.post("/recommendation", async (c) => {
 
   // Use whichever requirement is larger.
   const calculatedTopUp =
-    targetReserveTopUp > gasSafetyTopUp
+    targetReserveTopUp > transactionSafetyTopUp
       ? targetReserveTopUp
-      : gasSafetyTopUp;
-
+      : transactionSafetyTopUp;
   // Hard maximum for one top-up.
   const maxTopUp = 50000000000000000n; // 0.05 BNB
 
@@ -813,7 +1020,11 @@ app.post("/recommendation", async (c) => {
     | "TOP_UP_RECOMMENDED"
     | "TOP_UP_UNAVAILABLE";
 
-  if (!gasUnaffordable && !lowRunway) {
+  if (
+    !gasUnaffordable &&
+    !transactionUnaffordable &&
+    !lowRunway
+  ) {
     decision = "NO_ACTION";
   } else if (reserveAvailable) {
     decision = "TOP_UP_RECOMMENDED";
