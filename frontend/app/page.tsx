@@ -69,6 +69,7 @@ export default function Home() {
     fetch(`http://localhost:3000/wallet/${address}`)
       .then((res) => res.json())
       .then((data) => {
+        console.log("WALLET API RESPONSE:", data);
         setWalletBalance(data.balanceWei);
       })
       .catch((error) => {
@@ -377,11 +378,19 @@ export default function Home() {
 
           <div>
             <div className="px-3">
-              <div className="text-xl font-semibold tracking-[0.35em]">
-                ZEHN
+              <div className="flex items-center gap-3">
+                <img
+                  src="/zehn-logo.png"
+                  alt="Zehn logo"
+                  className="h-9 w-9 object-contain"
+                />
+
+                <div className="text-xl font-semibold tracking-[0.35em]">
+                  ZEHN
+                </div>
               </div>
 
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-slate-500">
                 Your wallet, always ready.
               </p>
             </div>
@@ -458,7 +467,69 @@ export default function Home() {
                 BSC Testnet
               </div>
 
-              <ConnectButton />
+              <ConnectButton.Custom>
+                {({
+                  account,
+                  chain,
+                  openAccountModal,
+                  openChainModal,
+                  openConnectModal,
+                  mounted,
+                }) => {
+                  if (!mounted) {
+                    return (
+                      <button
+                        type="button"
+                        className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 text-sm font-medium text-slate-300"
+                      >
+                        Connect Wallet
+                      </button>
+                    );
+                  }
+
+                  if (!account || !chain) {
+                    return (
+                      <button
+                        type="button"
+                        onClick={openConnectModal}
+                        className="rounded-xl bg-emerald-400 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300"
+                      >
+                        Connect Wallet
+                      </button>
+                    );
+                  }
+
+                  if (chain.unsupported) {
+                    return (
+                      <button
+                        type="button"
+                        onClick={openChainModal}
+                        className="rounded-xl bg-red-400 px-4 py-2.5 text-sm font-semibold text-slate-950"
+                      >
+                        Wrong network
+                      </button>
+                    );
+                  }
+
+                  return (
+                    <button
+                      type="button"
+                      onClick={openAccountModal}
+                      className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 transition hover:bg-white/[0.07]"
+                    >
+                      <span className="h-2 w-2 rounded-full bg-emerald-400" />
+
+                      <span className="text-sm font-medium text-slate-200">
+                        {walletBNB ? `${walletBNB} BNB` : "— BNB"}
+                      </span>
+
+                      <span className="text-xs text-slate-500">
+                        {account.displayName}
+                      </span>
+                    </button>
+                  );
+                }}
+              </ConnectButton.Custom>
             </div>
 
           </header>
@@ -1183,7 +1254,7 @@ export default function Home() {
 
           </div>
         </div>
-      </div>
-    </main>
+      </div >
+    </main >
   );
 }
