@@ -361,11 +361,11 @@ export default function Home() {
 
   const healthDescription =
     healthStatus === "Healthy"
-      ? "Your wallet is protected and has sufficient gas coverage."
+      ? "Your wallet has sufficient gas coverage."
       : healthStatus === "Needs attention"
         ? "Your wallet may need additional gas protection soon."
         : healthStatus === "Not protected"
-          ? "Your wallet does not currently meet the protection requirements."
+          ? "Your wallet does not currently meet the gas protection requirements."
           : "Connect your wallet to view your gas health.";
 
   return (
@@ -409,7 +409,7 @@ export default function Home() {
 
               <button className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm text-slate-400 transition hover:bg-white/[0.04] hover:text-white">
                 <span>◇</span>
-                Protection
+                Gas Protection
               </button>
 
               <button className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm text-slate-400 transition hover:bg-white/[0.04] hover:text-white">
@@ -450,7 +450,7 @@ export default function Home() {
 
             <div>
               <p className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-400">
-                Wallet protection
+                gas protection
               </p>
 
               <h1 className="mt-2 text-2xl font-semibold tracking-tight">
@@ -458,7 +458,7 @@ export default function Home() {
               </h1>
 
               <p className="mt-1 text-sm text-slate-500">
-                Monitor your gas health and protect your wallet automatically.
+                Monitor your gas health and keep your wallet ready automatically.
               </p>
             </div>
 
@@ -606,7 +606,9 @@ export default function Home() {
 
                     <p className="mt-2 text-3xl font-semibold">
                       {estimatedRunwayDays !== null
-                        ? `${estimatedRunwayDays.toFixed(0)}`
+                        ? estimatedRunwayDays > 90
+                          ? "90+"
+                          : estimatedRunwayDays.toFixed(0)
                         : "--"}
                       <span className="ml-1 text-sm font-normal text-slate-500">
                         days
@@ -694,7 +696,11 @@ export default function Home() {
                     : "text-slate-600"
                     }`}
                 >
-                  {eligible ? "Eligible for protection" : "Reserve status"}
+                  {eligible === null
+                    ? "Checking reserve..."
+                    : eligible
+                      ? "Gas coverage ready"
+                      : "Below coverage threshold"}
                 </p>
 
               </div>
@@ -720,7 +726,7 @@ export default function Home() {
                 </p>
 
                 <p className="relative mt-2 text-xs leading-5 text-slate-500">
-                  Your reserve could earn yield while remaining available for protection.
+                  Your reserve could earn yield while remaining available for gas coverage..
                 </p>
 
               </div>
@@ -731,7 +737,7 @@ export default function Home() {
 
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-slate-400">
-                    Protection Status
+                    Gas Protection Status
                   </p>
 
                   <span className="relative flex h-5 w-9 items-center rounded-full bg-emerald-400/80">
@@ -875,7 +881,7 @@ export default function Home() {
                   </p>
 
                   <p className="mt-1 text-xs text-slate-500">
-                    Check if your transaction can be executed safely.
+                    Check whether your wallet has enough gas for this transaction.
                   </p>
                 </div>
 
@@ -958,11 +964,11 @@ export default function Home() {
 
             </section>
 
-            {/* ───────────────── PROTECTION + ACTIVITY ───────────────── */}
+            {/* ───────────────── GAS PROTECTION + ACTIVITY ───────────────── */}
 
             <section className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
 
-              {/* Recommendation / Protection */}
+              {/* Recommendation / Gas Protection */}
 
               <div className="rounded-2xl border border-white/[0.07] bg-[#0c1118] p-6">
 
@@ -970,7 +976,7 @@ export default function Home() {
 
                   <div>
                     <p className="text-base font-semibold">
-                      Recommended Protection
+                      Recommended Gas Protection
                     </p>
 
                     <p className="mt-1 text-xs text-slate-500">
@@ -989,30 +995,51 @@ export default function Home() {
                 {recommendation ? (
                   <div className="mt-6">
 
-                    <div className="rounded-xl border border-white/[0.07] bg-[#080c11] p-5">
+                    {recommendation.decision === "NO_ACTION" ? (
+                      <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/[0.05] p-5">
 
-                      <p className="text-xs text-slate-500">
-                        Recommended top-up
-                      </p>
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-400/10 text-emerald-300">
+                            ✓
+                          </div>
 
-                      <p className="mt-2 text-3xl font-semibold">
-                        {recommendation.reserve?.recommendedTopUpWei
-                          ? `${Number(
-                            formatEther(
-                              BigInt(
-                                recommendation.reserve
-                                  .recommendedTopUpWei
+                          <div>
+                            <p className="text-sm font-medium text-emerald-300">
+                              No action needed
+                            </p>
+
+                            <p className="mt-1 text-xs text-slate-500">
+                              Your wallet currently has sufficient gas coverage.
+                            </p>
+                          </div>
+                        </div>
+
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-white/[0.07] bg-[#080c11] p-5">
+
+                        <p className="text-xs text-slate-500">
+                          Recommended top-up
+                        </p>
+
+                        <p className="mt-2 text-3xl font-semibold">
+                          {recommendation.reserve?.recommendedTopUpWei
+                            ? `${Number(
+                              formatEther(
+                                BigInt(
+                                  recommendation.reserve.recommendedTopUpWei
+                                )
                               )
-                            )
-                          ).toFixed(6)} BNB`
-                          : "0 BNB"}
-                      </p>
+                            ).toFixed(6)} BNB`
+                            : "0 BNB"}
+                        </p>
 
-                      <p className="mt-2 text-xs text-slate-600">
-                        Zehn will keep your wallet above the target gas reserve.
-                      </p>
+                        <p className="mt-2 text-xs text-slate-600">
+                          Zehn will keep your wallet above the target gas reserve.
+                        </p>
 
-                    </div>
+                      </div>
+                    )}
 
                     {recommendation.decision === "TOP_UP_RECOMMENDED" && (
                       <button
@@ -1022,7 +1049,7 @@ export default function Home() {
                       >
                         {simulating
                           ? "Simulating..."
-                          : "Simulate Protection →"}
+                          : "Simulate Gas Top-up →"}
                       </button>
                     )}
 
@@ -1040,7 +1067,7 @@ export default function Home() {
                         </p>
 
                         <p className="mt-1 text-xs leading-5 text-slate-500">
-                          The Oracle verified that the protection transaction can be executed.
+                          The Oracle verified that the gas top-up transaction can be executed.
                         </p>
 
                         {!execution && (
@@ -1050,8 +1077,8 @@ export default function Home() {
                             className="mt-4 w-full rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {executing
-                              ? "Executing Protection..."
-                              : "Protect Wallet →"}
+                              ? "Executing Top-up..."
+                              : "Top-up Wallet →"}
                           </button>
                         )}
 
@@ -1068,7 +1095,7 @@ export default function Home() {
                       <div className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.05] p-4">
 
                         <p className="text-sm font-medium text-emerald-300">
-                          ✓ Protection executed successfully
+                          ✓ Gas Top-up executed successfully
                         </p>
 
                         <div className="mt-3 space-y-1 text-xs text-slate-500">
@@ -1108,7 +1135,7 @@ export default function Home() {
                     </div>
 
                     <p className="mt-3 text-sm text-slate-400">
-                      Run a transaction safety check to receive a protection recommendation.
+                      Run a transaction safety check to receive a gas protection recommendation.
                     </p>
 
                   </div>
@@ -1128,7 +1155,7 @@ export default function Home() {
                     </p>
 
                     <p className="mt-1 text-xs text-slate-500">
-                      Recent activity from your protected wallet.
+                      Recent activity from your wallet.
                     </p>
                   </div>
 
@@ -1240,7 +1267,7 @@ export default function Home() {
                   </p>
 
                   <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">
-                    Zehn is designed to let your gas reserve earn yield while keeping funds available for wallet protection.
+                    Zehn is designed to let your gas reserve earn yield while keeping funds available for gas coverage.
                   </p>
                 </div>
 
