@@ -29,6 +29,11 @@ export default function Home() {
   const [gasUsageIncreasing, setGasUsageIncreasing] = useState<boolean | null>(
     null
   );
+
+  const [dailyGasUsage, setDailyGasUsage] = useState<
+    { date: string; gasSpentWei: string; gasSpentBNB: string }[]
+  >([]);
+
   const [estimatedRunwayDays, setEstimatedRunwayDays] = useState<number | null>(
     null
   );
@@ -63,6 +68,7 @@ export default function Home() {
       setGasUsageIncreasing(null);
       setEstimatedRunwayDays(null);
       setTargetReserveDays(null);
+      setDailyGasUsage([]);
       return;
     }
 
@@ -93,6 +99,7 @@ export default function Home() {
         setGasUsageIncreasing(data.gasUsageIncreasing);
         setEstimatedRunwayDays(data.estimatedRunwayDays);
         setTargetReserveDays(data.targetReserveDays);
+        setDailyGasUsage(data.dailyGasUsage ?? []);
       })
       .catch((error) => {
         console.error("Failed to fetch gas analytics:", error);
@@ -367,6 +374,64 @@ export default function Home() {
         : healthStatus === "Not protected"
           ? "Your wallet does not currently meet the gas protection requirements."
           : "Connect your wallet to view your gas health.";
+
+  const chartWidth = 800;
+  const chartHeight = 180;
+
+  const chartValues = dailyGasUsage.map((item) =>
+    Number(item.gasSpentWei)
+  );
+
+  const maxChartValue = Math.max(...chartValues, 1);
+
+  const chartPoints = dailyGasUsage.map((item, index) => {
+    const x =
+      dailyGasUsage.length > 1
+        ? (index / (dailyGasUsage.length - 1)) * chartWidth
+        : chartWidth / 2;
+
+    const value = Number(item.gasSpentWei);
+
+    const y =
+      chartHeight -
+      (value / maxChartValue) * 140 -
+      20;
+
+    return { x, y };
+  });
+
+  const chartPath =
+    chartPoints.length > 0
+      ? chartPoints
+        .map(
+          (point, index) =>
+            `${index === 0 ? "M" : "L"}${point.x} ${point.y}`
+        )
+        .join(" ")
+      : "";
+
+  const chartAreaPath =
+    chartPath
+      ? `${chartPath} L ${chartWidth} ${chartHeight} L 0 ${chartHeight} Z`
+      : "";
+
+  const recommendationWalletBalance =
+    recommendation?.wallet?.balanceBNB ?? null;
+
+  const recommendationGasCost =
+    recommendation?.gas?.estimatedGasCostBNB ?? null;
+
+  const recommendationMinimumReserve =
+    recommendation?.safety?.minimumWalletReserveBNB ?? null;
+
+  const recommendationTargetReserve =
+    recommendation?.gas?.targetGasReserveBNB ?? null;
+
+  const recommendationPlanningGasPerDay =
+    recommendation?.gas?.planningGasPerDayBNB ?? null;
+
+  const recommendationTopUp =
+    recommendation?.reserve?.recommendedTopUpBNB ?? null;
 
   return (
     <main className="min-h-screen bg-[#070a0f] text-white">
@@ -726,7 +791,7 @@ export default function Home() {
                 </p>
 
                 <p className="relative mt-2 text-xs leading-5 text-slate-500">
-                  Your reserve could earn yield while remaining available for gas coverage..
+                  Your reserve could earn yield while remaining available for gas coverage.
                 </p>
 
               </div>
@@ -850,15 +915,17 @@ export default function Home() {
                     </defs>
 
                     <path
-                      d="M0 145 C80 130, 90 145, 150 120 C210 100, 240 135, 300 115 C360 95, 400 125, 455 92 C510 65, 550 110, 610 76 C670 45, 700 75, 800 35 L800 180 L0 180 Z"
+                      d={chartAreaPath}
                       fill="url(#gasGradient)"
                     />
 
                     <path
-                      d="M0 145 C80 130, 90 145, 150 120 C210 100, 240 135, 300 115 C360 95, 400 125, 455 92 C510 65, 550 110, 610 76 C670 45, 700 75, 800 35"
+                      d={chartPath}
                       fill="none"
                       stroke="#34d399"
                       strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
                     />
                   </svg>
 
@@ -1033,12 +1100,73 @@ export default function Home() {
                             ).toFixed(6)} BNB`
                             : "0 BNB"}
                         </p>
+                        <div className="mt-5 rounded-xl border border-white/5 bg-black/20 p-4">
+                          <p className="text-sm font-medium text-slate-200">
+                            Why this recommendation?
+                          </p>
 
+                          <div className="mt-3 space-y-2 text-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-500">
+                                Current wallet balance
+                              </span>
+                              <span className="text-slate-300">
+                                {recommendationWalletBalance
+                                  ? `${recommendationWalletBalance} BNB`
+                                  : "--"}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-500">
+                                Estimated transaction gas
+                              </span>
+                              <span className="text-slate-300">
+                                {recommendationGasCost
+                                  ? `${recommendationGasCost} BNB`
+                                  : "--"}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-500">
+                                Minimum wallet reserve
+                              </span>
+                              <span className="text-slate-300">
+                                {recommendationMinimumReserve
+                                  ? `${recommendationMinimumReserve} BNB`
+                                  : "--"}
+                              </span>
+                            </div>
+
+                            <div className="my-2 border-t border-white/5" />
+
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-400">
+                                Recommended top-up
+                              </span>
+                              <span className="font-medium text-emerald-300">
+                                {recommendationTopUp
+                                  ? `${recommendationTopUp} BNB`
+                                  : "--"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
                         <p className="mt-2 text-xs text-slate-600">
-                          Zehn will keep your wallet above the target gas reserve.
+                          Zehn calculates the top-up using your transaction cost,
+                          minimum safety reserve, and recent gas usage.
                         </p>
 
+                        {recommendation?.gas?.gasUsageIncreasing && (
+                          <p className="mt-3 text-xs text-amber-400/80">
+                            ↗ Recent gas usage is higher than your historical baseline,
+                            so Zehn is using the higher usage rate when planning coverage.
+                          </p>
+                        )}
+
                       </div>
+
                     )}
 
                     {recommendation.decision === "TOP_UP_RECOMMENDED" && (
