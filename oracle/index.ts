@@ -558,6 +558,8 @@ app.get("/gas/:address", async (c) => {
   let recent7DayGasSpent = 0n;
   let transactionsAnalyzed = 0;
 
+  const dailyGasUsage = new Map<string, bigint>();
+
   do {
     const transfersUrl = new URL(RPC_URL);
 
@@ -703,6 +705,20 @@ app.get("/gas/:address", async (c) => {
         recent7DayGasSpent += gasCost;
       }
 
+      // Aggregate real gas usage by UTC date.
+      const date = new Date(blockTimestamp * 1000)
+        .toISOString()
+        .slice(0, 10);
+
+      dailyGasUsage.set(
+        date,
+        (dailyGasUsage.get(date) ?? 0n) + gasCost
+      );
+
+      if (blockTimestamp >= sevenDaysAgo) {
+        recent7DayGasSpent += gasCost;
+      }
+
       transactionsAnalyzed++;
     }
 
@@ -757,6 +773,25 @@ app.get("/gas/:address", async (c) => {
 
   const runwayThresholdDays = 7;
 
+  const dailyGasUsageSeries = Array.from(
+    { length: 30 },
+    (_, index) => {
+      const date = new Date(
+        (now - (29 - index) * 24 * 60 * 60) * 1000
+      )
+        .toISOString()
+        .slice(0, 10);
+
+      const gasSpent = dailyGasUsage.get(date) ?? 0n;
+
+      return {
+        date,
+        gasSpentWei: gasSpent.toString(),
+        gasSpentBNB: formatEther(gasSpent),
+      };
+    }
+  );
+
   const needsTopUp =
     estimatedRunwayDays !== null &&
     estimatedRunwayDays < runwayThresholdDays;
@@ -764,6 +799,7 @@ app.get("/gas/:address", async (c) => {
   return c.json({
     address,
     periodDays: 30,
+    dailyGasUsage: dailyGasUsageSeries,
 
     totalGasSpentWei: totalGasSpent.toString(),
     averageGasPerDayWei: averageGasPerDay.toString(),
