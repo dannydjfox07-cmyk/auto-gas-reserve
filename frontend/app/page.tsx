@@ -787,7 +787,7 @@ export default function Home() {
                 </div>
 
                 <p className="relative mt-5 text-2xl font-semibold tracking-tight text-emerald-300">
-                  Coming soon
+                  Planned
                 </p>
 
                 <p className="relative mt-2 text-xs leading-5 text-slate-500">
@@ -805,9 +805,7 @@ export default function Home() {
                     Gas Protection Status
                   </p>
 
-                  <span className="relative flex h-5 w-9 items-center rounded-full bg-emerald-400/80">
-                    <span className="absolute right-1 h-3.5 w-3.5 rounded-full bg-white" />
-                  </span>
+
                 </div>
 
                 <p className="mt-5 flex items-center gap-2 text-2xl font-semibold text-emerald-300">
@@ -872,7 +870,7 @@ export default function Home() {
                       }`}
                   >
                     {gasUsageIncreasing
-                      ? "↗ Increasing"
+                      ? "↗ Usage Increasing"
                       : gasUsageIncreasing === false
                         ? "→ Stable"
                         : "--"}
@@ -1037,7 +1035,7 @@ export default function Home() {
 
               {/* Recommendation / Gas Protection */}
 
-              <div className="rounded-2xl border border-white/[0.07] bg-[#0c1118] p-6">
+              <div className="self-start rounded-2xl border border-white/[0.07] bg-[#0c1118] p-6">
 
                 <div className="flex items-start justify-between gap-5">
 
@@ -1256,13 +1254,13 @@ export default function Home() {
 
                   </div>
                 ) : (
-                  <div className="mt-6 rounded-xl border border-dashed border-white/[0.08] bg-[#080c11] p-7 text-center">
+                  <div className="mt-6 rounded-xl border border-dashed border-white/[0.08] bg-[#080c11] p-5 text-center">
 
-                    <div className="text-2xl text-slate-700">
+                    <div className="text-xl text-slate-700">
                       ◇
                     </div>
 
-                    <p className="mt-3 text-sm text-slate-400">
+                    <p className="mt-2 text-sm text-slate-400">
                       Run a transaction safety check to receive a gas protection recommendation.
                     </p>
 
@@ -1400,7 +1398,7 @@ export default function Home() {
                 </div>
 
                 <span className="shrink-0 rounded-xl border border-violet-400/20 bg-violet-400/[0.06] px-4 py-2 text-xs text-violet-300">
-                  Yield strategy coming soon
+                  Yield strategy Planned
                 </span>
 
               </div>
