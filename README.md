@@ -2,7 +2,7 @@
 
 > **Your wallet, always ready.**
 
-Zehn is an autonomous gas protection layer for crypto wallets.
+Zehn is an automated gas protection layer for crypto wallets.
 
 Instead of forcing users to constantly monitor their native-token balance, Zehn analyzes wallet gas usage, evaluates upcoming transactions, and can replenish gas from a dedicated reserve when protection is needed.
 
@@ -73,7 +73,7 @@ Zehn combines:
 
 The core principle is:
 
-> **The AI and application layer can recommend an action, but the smart contract remains the final enforcement layer.**
+> **Intelligence can recommend. The Oracle can execute. The smart contract decides what is allowed.**
 
 This separation allows Zehn to automate gas management without giving an AI model direct control over user funds.
 
@@ -129,12 +129,12 @@ At a high level, Zehn follows this flow:
           ┌──────────────────┐
           │   User Wallet    │
           └──────────────────┘
-
+```
 ## Core Features
 
 ### 🛡️ Wallet Gas Protection
 
-Zehn monitors the wallet's available native-token balance and estimated gas runway to determine whether additional protection may be required.
+Zehn evaluates the wallet's available native-token balance and estimated gas runway to determine whether additional protection may be required.
 
 The current prototype uses a 7-day runway threshold to identify wallets that may need attention.
 
@@ -177,7 +177,7 @@ The decision engine can return:
 NO_ACTION
 TOP_UP_RECOMMENDED
 TOP_UP_UNAVAILABLE
-
+```
 ## Architecture
 
 Zehn is composed of four main layers:
@@ -241,6 +241,41 @@ AutoGasReserve
      │
      └── User Reserve
 
+### 3. Analyze Gas Health
+
+Zehn retrieves the wallet's historical gas activity and calculates:
+
+- average daily gas usage
+- recent gas usage
+- gas usage acceleration
+- estimated wallet runway
+- target reserve requirements
+
+This allows Zehn to understand the wallet's current gas health.
+
+### 4. Check Transaction Safety
+
+The user enters the transaction they want to perform.
+
+Zehn evaluates the transaction against:
+
+- current wallet balance
+- transaction value
+- estimated gas cost
+- minimum safety reserve
+- expected gas requirements
+
+### 5. Generate a Protection Recommendation
+
+The decision engine determines whether the wallet has sufficient gas coverage.
+
+Possible outcomes are:
+
+```text
+NO_ACTION
+TOP_UP_RECOMMENDED
+TOP_UP_UNAVAILABLE
+```
 ## Smart Contract
 
 Zehn's reserve is managed by the `AutoGasReserve` smart contract, written in Solidity 0.8.20 and deployed on BSC Testnet.
@@ -283,6 +318,32 @@ User Wallet
 deposit()
     ↓
 AutoGasReserve
+```
+#### `isEligible(address user)`
+
+Returns whether the user's reserve meets the minimum deposit requirement.
+
+The current minimum eligibility threshold is `0.05 BNB`.
+
+#### `withdraw(uint256 amount)`
+
+Allows users to withdraw BNB from their own reserve.
+
+The contract verifies that the requested amount is valid and that sufficient reserve balance exists before transferring funds back to the user.
+
+#### `topUpGas(address user, uint256 amount)`
+
+Allows only the authorized Oracle to transfer gas from a user's Zehn reserve to their wallet.
+
+Before execution, the contract verifies:
+
+- Oracle authorization
+- valid amount
+- sufficient reserve
+- user eligibility
+- transfer success
+
+A successful top-up emits the `GasToppedUp` event.
 
 ## Oracle & Decision Engine
 
@@ -323,10 +384,39 @@ Reserve Balance
 Decision Engine
       ↓
 Protection Recommendation
+      ↓
+Oracle Simulation
+      ↓
+Authorized Transaction
+      ↓
+AutoGasReserve
+      ↓
+Gas Top-Up
+```
+### Oracle Responsibilities
+
+The Oracle provides the offchain computation required to make gas protection decisions.
+
+Its main responsibilities are:
+
+- retrieving wallet balances
+- analyzing historical gas usage
+- estimating transaction gas requirements
+- calculating wallet runway
+- determining recommended top-up amounts
+- simulating `topUpGas()`
+- executing authorized top-up transactions
+- exposing activity and wallet data to the frontend
+
+The Oracle does not directly control the user's reserve.
+
+The smart contract determines whether an Oracle-requested top-up is actually allowed.
 
 ## AI Layer
 
 AI is designed to extend Zehn's gas protection system with more intelligent analysis, explanations, and personalized recommendations.
+
+**The current hackathon prototype does not depend on an AI model for its core protection flow.**
 
 The important architectural principle is:
 
@@ -357,6 +447,12 @@ Gas Analytics
 AI Analysis
     ↓
 Human-readable Explanation
+```
+The AI layer is intentionally separated from financial execution.
+
+AI-generated recommendations or explanations do not have permission to move funds.
+
+Any future AI-assisted protection flow would still pass through the deterministic Oracle and smart contract enforcement layer.
 
 ## Tech Stack
 
@@ -421,6 +517,61 @@ Smart Contract
       ├── Oracle Backend
       │
       └── Next.js Frontend
+```
+### Prerequisites
+
+- Bun
+- Foundry
+- A wallet with BSC Testnet BNB
+- Required RPC and API credentials
+
+### 1. Smart Contract
+
+```bash
+cd contracts
+forge build
+forge test
+```
+### 2. Ponder Indexer
+
+```bash
+cd ../indexer
+bun install
+bun run dev
+```
+The indexer runs at:
+
+`http://localhost:42069/graphql`
+
+### 3. Oracle Backend
+
+Configure the required environment variables in oracle/.env.
+
+```bash
+cd ../oracle
+bun install
+bun run index.ts
+
+```
+The Oracle runs at:
+`http://localhost:3000`
+
+### 4. Frontend
+
+```bash
+cd ../frontend
+bun install
+bun dev --port 3001
+```
+The frontend runs at:
+
+`http://localhost:3001`
+
+### Environment Variables
+
+The Oracle and indexer require environment variables for RPC access, wallet configuration, and gas analytics.
+
+Never commit private keys, API keys, or other secrets to the repository.
 
 ## Testnet Deployment
 
@@ -470,6 +621,32 @@ BNB transferred to user's wallet
 Ponder indexes GasToppedUp event
       ↓
 Frontend displays the activity
+```
+### Example Onchain Execution
+
+Zehn has been tested end-to-end using a real gas top-up on BSC Testnet.
+
+The latest frontend-triggered execution:
+
+- **Top-up:** `0.0005252 BNB`
+- **Block:** `135237371`
+- **Transaction:** `0x57f502b95118fb7eba2625d7292e13733be35b36def2611e11ca2608977c6d4d`
+
+The transaction was:
+
+1. Recommended by the Zehn decision engine
+2. Simulated by the Oracle
+3. Executed through the authorized Oracle
+4. Validated by the `AutoGasReserve` smart contract
+5. Transferred to the user's wallet
+6. Indexed by Ponder
+7. Displayed in the Zehn activity history
+
+This demonstrates the complete protection loop:
+
+**Analyze → Recommend → Simulate → Execute → Verify → Re-evaluate**
+
+[View the transaction on BscScan](https://testnet.bscscan.com/tx/0x57f502b95118fb7eba2625d7292e13733be35b36def2611e11ca2608977c6d4d)
 
 ## Demo
 
@@ -507,9 +684,7 @@ The demonstrated flow includes:
 
 ### Demo Video
 
-A short demonstration video will be provided with the hackathon submission.
-
-The target demo duration is approximately **2–4 minutes**, focusing on the complete user journey from wallet connection to successful gas protection.
+A short demonstration video is included with the hackathon submission and focuses on the complete user journey from wallet connection to successful gas protection.
 
 ### Live Testnet Contract
 
@@ -544,7 +719,7 @@ User Reserve
          /       \
      User      Zehn
      Share     Share
-
+```
 ## Roadmap
 
 Zehn's current prototype establishes the core gas protection infrastructure. The next stages focus on making the system more autonomous, intelligent, capital-efficient, and eventually multi-chain.
@@ -633,7 +808,7 @@ Intelligent Monitoring
 Autonomous Management
      ↓
 Multi-Chain Wallet Infrastructure
-
+```
 ## Current Limitations
 
 Zehn is a functional hackathon prototype, but several components would require additional development and security work before production deployment.
@@ -729,7 +904,7 @@ Oracle
 Smart Contract
     ↓
 Gas Top-Up
-
+```
 ## Project Structure
 
 The repository is organized into separate components for the smart contract, blockchain indexer, Oracle backend, and frontend.
@@ -752,11 +927,10 @@ auto-gas-reserve/
 │       └── ...
 │
 ├── oracle/
-│   ├── src/
-│   │   ├── index.ts
-│   │   ├── routes/
-│   │   ├── services/
-│   │   └── lib/
+│   ├── index.ts
+│   ├── routes/
+│   ├── services/
+│   ├── lib/
 │   └── package.json
 │
 ├── frontend/
@@ -770,11 +944,7 @@ auto-gas-reserve/
 │
 ├── README.md
 └── .gitignore
-
-
-Then the **final README section**:
-
-```md
+```
 ## License
 
 This project is licensed under the MIT License.
